@@ -21,20 +21,20 @@ if ($_POST) {
         $_SESSION['usuarios'][$_POST['nombre']] = $usuario;
         $_SESSION['usuario_actual'] = $_POST['nombre'];
     }
-    
+
     if (isset($_POST['calcular'])) {
         $nombre = $_POST['usuario'];
         $peso = floatval($_POST['peso']);
         $altura = floatval($_POST['altura']) / 100; // convertir cm a metros
         $imc = round($peso / ($altura * $altura), 2);
-        
+
         $calculo = [
             'fecha' => date('Y-m-d H:i:s'),
             'peso' => $peso,
             'altura' => $_POST['altura'],
             'imc' => $imc
         ];
-        
+
         if (!isset($_SESSION['historial'][$nombre])) {
             $_SESSION['historial'][$nombre] = [];
         }
@@ -42,23 +42,25 @@ if ($_POST) {
         $_SESSION['ultimo_imc'] = $imc;
         $_SESSION['usuario_actual'] = $nombre;
     }
-    
+
     if (isset($_POST['seleccionar_usuario'])) {
         $_SESSION['usuario_actual'] = $_POST['usuario_seleccionado'];
     }
 }
 
 // Funciones para determinar categoría IMC y sugerencias
-function categoriaIMC($imc) {
+function categoriaIMC($imc)
+{
     if ($imc < 18.5) return ['categoria' => 'Bajo peso', 'clase' => 'warning'];
     if ($imc < 25) return ['categoria' => 'Peso normal', 'clase' => 'success'];
     if ($imc < 30) return ['categoria' => 'Sobrepeso', 'clase' => 'warning'];
     return ['categoria' => 'Obesidad', 'clase' => 'danger'];
 }
 
-function obtenerSugerencias($imc, $edad, $genero, $condiciones) {
+function obtenerSugerencias($imc, $edad, $genero, $condiciones)
+{
     $sugerencias = ['dieta' => [], 'rutina' => []];
-    
+
     // Sugerencias de dieta basadas en IMC
     if ($imc < 18.5) {
         $sugerencias['dieta'] = [
@@ -89,7 +91,7 @@ function obtenerSugerencias($imc, $edad, $genero, $condiciones) {
             'Evitar alimentos procesados y bebidas azucaradas'
         ];
     }
-    
+
     // Sugerencias de rutina basadas en edad, género e IMC
     if ($edad < 30) {
         if ($genero === 'masculino') {
@@ -122,20 +124,23 @@ function obtenerSugerencias($imc, $edad, $genero, $condiciones) {
             'Yoga suave o tai chi para flexibilidad y balance'
         ];
     }
-    
+
     // Ajustar por condiciones físicas
-    if (strpos(strtolower($condiciones), 'lesion') !== false || 
-        strpos(strtolower($condiciones), 'dolor') !== false) {
+    if (
+        strpos(strtolower($condiciones), 'lesion') !== false ||
+        strpos(strtolower($condiciones), 'dolor') !== false
+    ) {
         $sugerencias['rutina'][] = 'IMPORTANTE: Consultar con fisioterapeuta antes de iniciar rutina';
         $sugerencias['rutina'][] = 'Evitar ejercicios que causen dolor';
     }
-    
+
     return $sugerencias;
 }
 ?>
 
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -144,6 +149,7 @@ function obtenerSugerencias($imc, $edad, $genero, $condiciones) {
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container">
@@ -202,8 +208,8 @@ function obtenerSugerencias($imc, $edad, $genero, $condiciones) {
                                 <select class="form-select" name="usuario" required>
                                     <option value="">Seleccionar cliente...</option>
                                     <?php foreach ($_SESSION['usuarios'] as $nombre => $datos): ?>
-                                        <option value="<?php echo $nombre; ?>" 
-                                                <?php echo (isset($_SESSION['usuario_actual']) && $_SESSION['usuario_actual'] == $nombre) ? 'selected' : ''; ?>>
+                                        <option value="<?php echo $nombre; ?>"
+                                            <?php echo (isset($_SESSION['usuario_actual']) && $_SESSION['usuario_actual'] == $nombre) ? 'selected' : ''; ?>>
                                             <?php echo $nombre; ?>
                                         </option>
                                     <?php endforeach; ?>
@@ -223,7 +229,7 @@ function obtenerSugerencias($imc, $edad, $genero, $condiciones) {
                         </form>
 
                         <?php if (isset($_SESSION['ultimo_imc']) && isset($_SESSION['usuario_actual'])): ?>
-                            <?php 
+                            <?php
                             $imc = $_SESSION['ultimo_imc'];
                             $categoria = categoriaIMC($imc);
                             ?>
@@ -239,12 +245,12 @@ function obtenerSugerencias($imc, $edad, $genero, $condiciones) {
 
         <!-- Sugerencias -->
         <?php if (isset($_SESSION['ultimo_imc']) && isset($_SESSION['usuario_actual'])): ?>
-            <?php 
+            <?php
             $usuario_actual = $_SESSION['usuarios'][$_SESSION['usuario_actual']];
             $sugerencias = obtenerSugerencias(
-                $_SESSION['ultimo_imc'], 
-                $usuario_actual['edad'], 
-                $usuario_actual['genero'], 
+                $_SESSION['ultimo_imc'],
+                $usuario_actual['edad'],
+                $usuario_actual['genero'],
                 $usuario_actual['condiciones']
             );
             ?>
@@ -282,23 +288,24 @@ function obtenerSugerencias($imc, $edad, $genero, $condiciones) {
                         </div>
                         <div class="card-body">
                             <div class="row">
-                                <?php 
+                                <?php
                                 $historial = array_reverse($_SESSION['historial'][$_SESSION['usuario_actual']]);
-                                foreach ($historial as $registro): 
+                                foreach ($historial as $registro):
                                     $categoria = categoriaIMC($registro['imc']);
                                 ?>
                                     <div class="col-md-4 mb-3">
-                                        <div class="history-item text-white">
+                                        <div class="history-item">
                                             <div class="d-flex justify-content-between">
                                                 <small><?php echo date('d/m/Y H:i', strtotime($registro['fecha'])); ?></small>
-                                                <span class="badge bg-<?php echo $categoria['clase']; ?>">
-                                                    <?php echo $categoria['categoria']; ?>
-                                                </span>
+
                                             </div>
                                             <div class="mt-2">
                                                 <strong>IMC: <?php echo $registro['imc']; ?></strong><br>
                                                 <small>Peso: <?php echo $registro['peso']; ?> kg | Altura: <?php echo $registro['altura']; ?> cm</small>
                                             </div>
+                                            <span class="badge bg-<?php echo $categoria['clase']; ?>">
+                                                <?php echo $categoria['categoria']; ?>
+                                            </span>
                                         </div>
                                     </div>
                                 <?php endforeach; ?>
@@ -329,7 +336,7 @@ function obtenerSugerencias($imc, $edad, $genero, $condiciones) {
                                     <button type="submit" name="seleccionar_usuario" class="btn btn-outline-primary">Ver Historial</button>
                                 </div>
                             </form>
-                            
+
                             <div class="table-responsive">
                                 <table class="table table-striped">
                                     <thead>
@@ -348,13 +355,13 @@ function obtenerSugerencias($imc, $edad, $genero, $condiciones) {
                                                 <td><?php echo $datos['edad']; ?> años</td>
                                                 <td><?php echo ucfirst($datos['genero']); ?></td>
                                                 <td>
-                                                    <?php 
+                                                    <?php
                                                     $count = isset($_SESSION['historial'][$nombre]) ? count($_SESSION['historial'][$nombre]) : 0;
                                                     echo $count . ' registro(s)';
                                                     ?>
                                                 </td>
                                                 <td>
-                                                    <?php 
+                                                    <?php
                                                     if (isset($_SESSION['historial'][$nombre]) && !empty($_SESSION['historial'][$nombre])) {
                                                         $ultimo = end($_SESSION['historial'][$nombre]);
                                                         $categoria = categoriaIMC($ultimo['imc']);
@@ -380,4 +387,5 @@ function obtenerSugerencias($imc, $edad, $genero, $condiciones) {
     <script src="script.js"></script>
 
 </body>
+
 </html>

@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 
-// Calculadora en tiempo real (opcional)
+// Calculadora en tiempo real
 function calcularIMCTiempoReal() {
     const pesoInput = document.querySelector('input[name="peso"]');
     const alturaInput = document.querySelector('input[name="altura"]');
