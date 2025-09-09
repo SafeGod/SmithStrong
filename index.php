@@ -9,7 +9,11 @@ if (!isset($_SESSION['historial'])) {
     $_SESSION['historial'] = [];
 }
 
-// Procesar formularios
+$calculo_reciente = false;
+$imc_calculado = null;
+$usuario_del_calculo = null;
+
+// Procesar formularios con redirección para evitar reenvío
 if ($_POST) {
     if (isset($_POST['registrar'])) {
         $usuario = [
@@ -20,6 +24,10 @@ if ($_POST) {
         ];
         $_SESSION['usuarios'][$_POST['nombre']] = $usuario;
         $_SESSION['usuario_actual'] = $_POST['nombre'];
+        
+        // Redireccionar para evitar reenvío del formulario
+        header('Location: ' . $_SERVER['PHP_SELF'] . '?action=registered');
+        exit;
     }
 
     if (isset($_POST['calcular'])) {
@@ -39,13 +47,34 @@ if ($_POST) {
             $_SESSION['historial'][$nombre] = [];
         }
         $_SESSION['historial'][$nombre][] = $calculo;
-        $_SESSION['ultimo_imc'] = $imc;
         $_SESSION['usuario_actual'] = $nombre;
+        
+        // Guardar temporalmente para mostrar resultado
+        $_SESSION['ultimo_calculo_temporal'] = [
+            'imc' => $imc,
+            'usuario' => $nombre
+        ];
+        
+        // Redireccionar para evitar reenvío del formulario
+        header('Location: ' . $_SERVER['PHP_SELF'] . '?action=calculated');
+        exit;
     }
 
     if (isset($_POST['seleccionar_usuario'])) {
         $_SESSION['usuario_actual'] = $_POST['usuario_seleccionado'];
+        header('Location: ' . $_SERVER['PHP_SELF'] . '?action=selected');
+        exit;
     }
+}
+
+// Verificar si acabamos de hacer un cálculo (una sola vez)
+if (isset($_GET['action']) && $_GET['action'] === 'calculated' && isset($_SESSION['ultimo_calculo_temporal'])) {
+    $calculo_reciente = true;
+    $imc_calculado = $_SESSION['ultimo_calculo_temporal']['imc'];
+    $usuario_del_calculo = $_SESSION['ultimo_calculo_temporal']['usuario'];
+    
+    // Limpiar inmediatamente para que no se muestre de nuevo
+    unset($_SESSION['ultimo_calculo_temporal']);
 }
 
 // Funciones para determinar categoría IMC y sugerencias
@@ -169,11 +198,11 @@ function obtenerSugerencias($imc, $edad, $genero, $condiciones)
                         <form method="POST" id="registroForm">
                             <div class="mb-3">
                                 <label class="form-label">Nombre completo</label>
-                                <input type="text" class="form-control" name="nombre" required>
+                                <input type="text" class="form-control" name="nombre" placeholder="Escribe tu nombre..." required>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Edad</label>
-                                <input type="number" class="form-control" name="edad" min="1" max="120" required>
+                                <input type="number" class="form-control" name="edad" min="1" max="120" placeholder="Escribe tu edad..." required>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Género</label>
@@ -217,24 +246,23 @@ function obtenerSugerencias($imc, $edad, $genero, $condiciones)
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Peso (kg)</label>
-                                <input type="number" class="form-control" name="peso" step="0.1" min="1" max="300" required>
+                                <input type="number" class="form-control" name="peso" step="0.1" min="1" max="300" placeholder="Escribe tu peso..." required>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Altura (cm)</label>
-                                <input type="number" class="form-control" name="altura" min="50" max="250" required>
+                                <input type="number" class="form-control" name="altura" min="50" max="250" placeholder="Escribe tu Altura..." required>
                             </div>
                             <button type="submit" name="calcular" class="btn btn-success w-100">
                                 <i class="fas fa-calculator"></i> Calcular IMC
                             </button>
                         </form>
 
-                        <?php if (isset($_SESSION['ultimo_imc']) && isset($_SESSION['usuario_actual'])): ?>
+                        <?php if ($calculo_reciente && $imc_calculado): ?>
                             <?php
-                            $imc = $_SESSION['ultimo_imc'];
-                            $categoria = categoriaIMC($imc);
+                            $categoria = categoriaIMC($imc_calculado);
                             ?>
                             <div class="imc-result alert alert-<?php echo $categoria['clase']; ?>">
-                                IMC: <?php echo $imc; ?><br>
+                                IMC: <?php echo $imc_calculado; ?><br>
                                 <small><?php echo $categoria['categoria']; ?></small>
                             </div>
                         <?php endif; ?>
@@ -243,15 +271,14 @@ function obtenerSugerencias($imc, $edad, $genero, $condiciones)
             </div>
         </div>
 
-        <!-- Sugerencias -->
-        <?php if (isset($_SESSION['ultimo_imc']) && isset($_SESSION['usuario_actual'])): ?>
+        <?php if ($calculo_reciente && $imc_calculado && $usuario_del_calculo): ?>
             <?php
-            $usuario_actual = $_SESSION['usuarios'][$_SESSION['usuario_actual']];
+            $usuario_datos = $_SESSION['usuarios'][$usuario_del_calculo];
             $sugerencias = obtenerSugerencias(
-                $_SESSION['ultimo_imc'],
-                $usuario_actual['edad'],
-                $usuario_actual['genero'],
-                $usuario_actual['condiciones']
+                $imc_calculado,
+                $usuario_datos['edad'],
+                $usuario_datos['genero'],
+                $usuario_datos['condiciones']
             );
             ?>
             <div class="row">
@@ -278,8 +305,8 @@ function obtenerSugerencias($imc, $edad, $genero, $condiciones)
             </div>
         <?php endif; ?>
 
-        <!-- Historial -->
-        <?php if (isset($_SESSION['usuario_actual']) && isset($_SESSION['historial'][$_SESSION['usuario_actual']])): ?>
+        <!-- Historial solo cuando se selecciona un usuario -->
+        <?php if (isset($_SESSION['usuario_actual']) && isset($_SESSION['historial'][$_SESSION['usuario_actual']]) && !empty($_SESSION['historial'][$_SESSION['usuario_actual']])): ?>
             <div class="row">
                 <div class="col-12">
                     <div class="card">
@@ -297,7 +324,6 @@ function obtenerSugerencias($imc, $edad, $genero, $condiciones)
                                         <div class="history-item">
                                             <div class="d-flex justify-content-between">
                                                 <small><?php echo date('d/m/Y H:i', strtotime($registro['fecha'])); ?></small>
-
                                             </div>
                                             <div class="mt-2">
                                                 <strong>IMC: <?php echo $registro['imc']; ?></strong><br>
@@ -330,7 +356,10 @@ function obtenerSugerencias($imc, $edad, $genero, $condiciones)
                                     <select class="form-select" name="usuario_seleccionado">
                                         <option value="">Seleccionar cliente para ver historial...</option>
                                         <?php foreach ($_SESSION['usuarios'] as $nombre => $datos): ?>
-                                            <option value="<?php echo $nombre; ?>"><?php echo $nombre; ?> (<?php echo $datos['edad']; ?> años)</option>
+                                            <option value="<?php echo $nombre; ?>"
+                                                <?php echo ($mostrar_historial && isset($_SESSION['usuario_actual']) && $_SESSION['usuario_actual'] == $nombre) ? 'selected' : ''; ?>>
+                                                <?php echo $nombre; ?> (<?php echo $datos['edad']; ?> años)
+                                            </option>
                                         <?php endforeach; ?>
                                     </select>
                                     <button type="submit" name="seleccionar_usuario" class="btn btn-outline-primary">Ver Historial</button>
